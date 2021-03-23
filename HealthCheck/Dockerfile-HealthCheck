@@ -1,0 +1,8 @@
+FROM willfarrell/autoheal
+RUN apk update
+RUN apk add --no-cache ssmtp
+
+COPY ./mail.txt /
+COPY ./ssmtp.conf /etc/ssmtp/ssmtp.conf
+COPY ./docker-entrypoint /
+RUN chmod 777 /docker-entrypoint

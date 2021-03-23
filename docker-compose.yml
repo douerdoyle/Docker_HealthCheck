@@ -1,0 +1,49 @@
+version: '3.3'
+# docker-compose --compatibility up
+
+services:
+  flask_server:
+    container_name: flask_server
+    deploy:
+      resources:
+        limits:
+          cpus: '2.000'
+          memory: 2G
+    restart: always
+    image: tiangolo/uwsgi-nginx-flask:python3.7
+    environment:
+      TZ: "Asia/Taipei"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1g"
+    volumes:
+      - ./src/:/app
+    # 檢查健康狀態的container只會檢查具備autoheal且值為true的container
+    labels:
+      autoheal: "true"
+
+    # 這邊的檢康檢查，需要輔以下面的bot_autohealcheck
+    healthcheck:
+        test: curl -Ss --fail 'http://localhost/status/' || exit 1
+        interval: 300s
+        timeout: 5s
+        # 意思是只要第三次curl的exit code為1，就會kill container
+        retries: 3
+
+  bot_autohealcheck:
+    container_name: bot_autohealcheck
+    restart: always
+    build:
+      context: './HealthCheck'
+      dockerfile: Dockerfile-HealthCheck
+    image: healthcheck:0.1
+    environment:
+      TZ: "Asia/Taipei"
+      # AUTOHEAL_CONTAINER_LABEL: "all" # 會檢查並重啟所有非健康的container
+      AUTOHEAL_CONTAINER_LABEL: "autoheal" # 只會認Label有autoheal且值為true的container
+      AUTOHEAL_START_PERIOD: "240" # bot_autohealcheck建立後，會等待180秒再開始健康檢查
+      # 如果bot被重啟，會寄送電子郵件，請在環境變數「EMAIL_RECEIVER」內填入郵件位址，如有多人，以「, 」隔開
+      EMAIL_RECEIVER: ""
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
